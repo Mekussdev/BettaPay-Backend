@@ -15,7 +15,6 @@
 
 import Fastify from "fastify";
 import cors from "@fastify/cors";
-import rateLimit from "@fastify/rate-limit";
 import * as promClient from "prom-client";
 import { randomUUID, randomInt } from "crypto";
 import { z } from "zod";
@@ -37,6 +36,7 @@ import {
   createLoggerOptions,
   registerTracing,
   buildFxEngineHealthResponse,
+  registerSharedRateLimit,
   readServiceVersion,
   createRedisClient,
   waitForRedis,
@@ -968,7 +968,7 @@ cleanupQueue.on("error", (err) => {
 fastify.register(cors, {
   origin: env.ALLOWED_ORIGINS,
 });
-fastify.register(rateLimit, { max: 200, timeWindow: 60 * 1000 });
+registerSharedRateLimit(fastify, { max: 200, timeWindow: 60 * 1000 });
 registerErrorHandler(fastify);
 registerServiceAuth(fastify, env.INTER_SERVICE_SECRET);
 // Distributed tracing: log + propagate x-request-id / x-trace-id (#118).
@@ -1832,3 +1832,4 @@ const start = async () => {
   }
 };
 start();
+

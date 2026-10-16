@@ -16,6 +16,9 @@ export * from './logger.js';
 export * from './envAwareSchema.js';
 export * from './webhookSchema.js';
 export * from './health.js';
+export * from './health-builders.js';
+export * from './request-context.js';
+export * from './rate-limit-plugin.js';
 export * from './audit.js';
 export * from './redis.js';
 export * from './metrics-server.js';
@@ -677,3 +680,4 @@ export * from './prisma-pool-metrics.js';
 export * from './encryption.js';
 export * from './batch-scan.js';
 export * from './idempotency.js';
+

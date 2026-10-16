@@ -22,7 +22,7 @@ import {
   createWebhookWorker,
   WEBHOOK_DEFAULTS,
 } from "@bettapay/webhook-delivery";
-import { closeWorkerWithTimeout, trackActiveJob } from "./worker-shutdown.js";
+import { closeWorkerWithTimeout, trackActiveJob } from "@bettapay/worker-shutdown";
 import { PrismaClient, WebhookSubscription, type Prisma } from "@prisma/client";
 import { rpc, scValToNative, xdr } from "@stellar/stellar-sdk";
 import pg from "pg";
@@ -49,7 +49,6 @@ import {
   setupPrismaQueryLogging,
   registerTracing,
   genReqId,
-  buildIndexerHealthResponse,
   readServiceVersion,
   createAuditLogger,
   createRedisClient,
@@ -70,7 +69,9 @@ import {
   installCrashHandlers,
   createErrorResponse,
   ErrorCodes,
+  registerSharedRateLimit,
 } from "@bettapay/validation";
+import { registerIndexerHealthRoute } from './routes/health.js';
 import { buildPaginationMeta } from "@bettapay/shared-types";
 import type { EventType, CleanupDryRunResult } from "@bettapay/validation";
 import * as promClient from "prom-client";
@@ -81,7 +82,6 @@ const startTime = Date.now();
 const SERVICE_VERSION = readServiceVersion(import.meta.url);
 
 import helmet from "@fastify/helmet";
-import rateLimit from "@fastify/rate-limit";
 
 const fastifyInstance = Fastify({
   logger: createLoggerOptions({ level: env.LOG_LEVEL }),
@@ -122,7 +122,7 @@ const logAuditEvent = createAuditLogger(
 
 fastify.register(cors, { origin: env.ALLOWED_ORIGINS });
 fastify.register(helmet, { contentSecurityPolicy: false });
-fastify.register(rateLimit, {
+registerSharedRateLimit(fastify, {
   max: 500,
   timeWindow: "1 minute",
   addHeaders: {
@@ -923,8 +923,7 @@ async function flushIndexedEvents(
 // definitions below so Fastify's onRoute hook sees all of them.
 auditRouteAuthPolicy(fastify);
 
-fastify.get("/api/health", { config: { rateLimit: false } }, async (_request, reply) => {
-  const health = await buildIndexerHealthResponse({queryDatabase: () => prisma.$queryRaw`SELECT 1`,
+registerIndexerHealthRoute(fastify, {queryDatabase: () => prisma.$queryRaw`SELECT 1`,
     pingRedis: () => sharedRedis.ping(),
     redisHealthState,
 
@@ -939,9 +938,6 @@ fastify.get("/api/health", { config: { rateLimit: false } }, async (_request, re
     service: "indexer",
     version: SERVICE_VERSION,
   });
-  const statusCode = health.status === "unhealthy" ? 503 : 200;
-  return reply.code(statusCode).send(health);
-});
 
 // Issue #67 — paginated events endpoint using the shared PaginatedResponse envelope
 // Internal endpoint — requires a valid x-service-token (#117).
@@ -2072,3 +2068,4 @@ process.on("SIGINT", () => void shutdown("SIGINT"));
 if (process.env.NODE_ENV !== "test") {
   start();
 }
+

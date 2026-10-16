@@ -25,7 +25,6 @@ import Fastify from 'fastify';
 import { z } from 'zod';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
-import rateLimit from '@fastify/rate-limit';
 import * as promClient from 'prom-client';
 import * as crypto from 'crypto';
 import { Queue, Worker, type BulkJobOptions, type Job } from 'bullmq';
@@ -53,7 +52,7 @@ import {
   startSemaphoreRenewal,
   getActiveCount,
 } from './redis-semaphore.js';
-import { closeWorkerWithTimeout, trackActiveJob } from './worker-shutdown.js';import { closeWorkerWithTimeout, trackActiveJob } from './worker-shutdown.js';
+import { closeWorkerWithTimeout, trackActiveJob } from '@bettapay/worker-shutdown';
 import { validateTimeoutConstants } from './timeout-constants.js';
 import { startSettlementReaper } from './settlement-reaper.js';
 import { MerchantCache, getCachedMerchant } from '../../shared/validation/merchant-cache.js';cache.js
@@ -77,6 +76,7 @@ import {
   createLoggerOptions,
   registerTracing,
   buildSettlementEngineHealthResponse,
+  registerSharedRateLimit,
   readServiceVersion,
   createRedisClient,
   waitForRedis,
@@ -214,7 +214,7 @@ fastify.register(cors, {
 
 fastify.register(helmet, { contentSecurityPolicy: false });
 
-fastify.register(rateLimit, {
+registerSharedRateLimit(fastify, {
   global: true,
   max: 1000,
   timeWindow: 60 * 1000,
@@ -2142,3 +2142,4 @@ const isDirectRun =
 if (isDirectRun && process.env.NODE_ENV !== 'test') {
   start();
 }
+
